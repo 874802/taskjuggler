@@ -19,7 +19,7 @@ project pSix "Web Game"  2024-12-15 +5m {
   # the project reports. If not specified, the current day will be
   # used, but this will likely be outside of the project range, so it
   # can't be seen in the reports.
-  now 2025-02-25-13:00
+  now 2025-04-10-13:00
   # The currency for all money values is the US Dollar.
   currency "EUR"
 
@@ -47,6 +47,7 @@ account cost "Project Cost" {
   account wFront "Web Front-End"
   account mFront "Mobile Front-end"
   account back "Back-End"
+  account cloud "Cloud Deployment"
 }
 account rev "Payments"
 # The Profit&Loss analysis should be rev - cost accounts.
@@ -67,6 +68,11 @@ resource dev2 "Samantha Müller" {
 }
 resource dev3 "Peter Green" {
   email "kkk@unizar.es"
+}
+resource dev4 "Pablo Bascones" {
+  email "874802@unizar.es"
+  limits { dailymax 4h }
+  rate 90
 }
 
 # Now we specify the work packages. The whole project is described as
@@ -92,7 +98,7 @@ task WMGame "Web & Mobile Game" {
   }
 
   task tback "Back End" {
-    # It is necessary to “purge” the “chargeset” because it has been assigned previously to other variable 
+    # It is necessary to "purge" the "chargeset" because it has been assigned previously to other variable 
     purge chargeset
     chargeset back
     responsible dev1
@@ -101,6 +107,7 @@ task WMGame "Web & Mobile Game" {
       # The effort to finish this task is 5 man-days.
       effort 5d
       allocate dev1
+      allocate dev4
     }
     task tlogic "Game logic" {
       effort 12d
@@ -116,7 +123,13 @@ task WMGame "Web & Mobile Game" {
     task tbackDev "Back development" {
       effort 20d
       allocate dev1, dev2
+      allocate dev4
       depends WMGame.tback.tlogic
+      journalentry 2025-04-10 "Backend development challenges" {
+        author dev4
+        alert yellow
+        summary "Encontrando algunos problemas con la integración de servicios externos. Necesitaremos revisar la arquitectura."
+      }
     }
   }
 
@@ -143,18 +156,94 @@ task WMGame "Web & Mobile Game" {
     task tFEt "Web Front End Test" {
       effort 6d
       allocate dev1
+      allocate dev4
       depends WMGame.twebF.tFEc
     }    
+  }
+
+  task tmobF "Mobile Front End" {
+    purge chargeset
+    chargeset mFront
+    responsible dev3
+    depends WMGame.tback.tBEd
+    task tMobileGUId "Mobile GUI Design" {
+      effort 10d
+      allocate dev3
+      depends WMGame.twebF.tGUId
+    }
+    task tPlatformDef "Platform Definition" {
+      effort 4d
+      allocate boss, dev3
+      allocate dev4
+      depends WMGame.tmobF.tMobileGUId
+    }
+    task tMobileFEc "Mobile Front End Construction" {
+      effort 18d
+      allocate dev2, dev3
+      depends WMGame.tmobF.tPlatformDef
+    }
+    task tResponsiveTesting "Responsive Design Testing" {
+      effort 5d
+      allocate dev3
+      allocate dev4
+      depends WMGame.tmobF.tMobileFEc
+    }
+    task tMobileFEt "Mobile Front End Test" {
+      effort 7d
+      allocate dev1, dev3
+      depends WMGame.tmobF.tResponsiveTesting
+    }
+  }
+
+  task tcloudDep "Cloud Deployment" {
+    purge chargeset
+    chargeset cloud
+    responsible dev1
+    depends WMGame.tback.tbackDev
+    task tCloudResearch "Cloud Provider Research" {
+      effort 6d
+      allocate dev1, boss
+      allocate dev4
+    }
+    task tCloudSelection "Cloud Provider Selection" {
+      effort 3d
+      allocate boss
+      depends WMGame.tcloudDep.tCloudResearch
+    }
+    task tInfrastructureSetup "Infrastructure Setup" {
+      effort 8d
+      allocate dev1
+      depends WMGame.tcloudDep.tCloudSelection
+    }
+    task tDeploymentPipeline "Deployment Pipeline Configuration" {
+      effort 7d
+      allocate dev1
+      depends WMGame.tcloudDep.tInfrastructureSetup
+    }
+    task tBackendDeployment "Backend Deployment" {
+      effort 5d
+      allocate dev1, dev2
+      depends WMGame.tcloudDep.tDeploymentPipeline
+    }
+    task tPerformanceTesting "Performance Testing" {
+      effort 6d
+      allocate dev1, dev2
+      allocate dev4
+      depends WMGame.tcloudDep.tBackendDeployment
+    }
   }
 
   task ttest "Acceptance tests" {
       effort 10d
       allocate boss
       allocate dev2
+      allocate dev4
       actual:effort 20d
-      depends WMGame.twebF
-      depends WMGame.tback
-      }
+      depends WMGame.twebF.tFEt
+      depends WMGame.tmobF.tMobileFEt
+      depends WMGame.tcloudDep.tPerformanceTesting
+      start 2025-05-15
+  }
 
     
   task deliveries "Milestones" {
@@ -242,6 +331,12 @@ textreport frame "" {
     center '<[report id="development"]>'
   }
 
+  textreport "InitialPlan" {
+    formats html
+    title "Initial Project Plan"
+    center '<[report id="initialPlan"]>'
+  }
+
   textreport "ContactList" {
     formats html
     title "Contact List"
@@ -270,6 +365,19 @@ taskreport overview "" {
   caption 'All effort values are in man days.'
 }
 
+# Report for the initial planning
+taskreport initialPlan "" {
+  scenarios plan
+  headline "Initial Project Plan"
+  columns bsi { title 'WBS' },
+          name, start, end, effort, cost,
+          revenue, chart { ${TaskTip} }
+  timeformat "%a %Y-%m-%d"
+  loadunit days
+  hideresource @all
+  balance cost rev
+  caption 'All effort values are in man days. This report shows the initial plan.'
+}
 
 # Macro to set the background color of a cell according to the alert
 # level of the task.
